@@ -61,7 +61,8 @@ python -m venv venv
 Activation:
 
 ```powershell
-venv\Scripts\Activate.ps1  ## Activation in Powershell Windows
+venv\Scripts\Activate.ps1  ## Activation in Powershell Windows or
+venv\Scripts\activate ## Also on Windows
 source venv/bin/activate  ## Activation in linux
 ```
 
