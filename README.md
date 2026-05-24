@@ -63,7 +63,7 @@ Activation:
 ```powershell
 venv\Scripts\Activate.ps1  ## Activation in Powershell Windows or
 venv\Scripts\activate ## Also on Windows
-source venv/bin/activate  ## Activation in linux
+source venv/bin/activate  ## Activation in linux/macOS
 ```
 
 If you need to install dependencies for the demo:
