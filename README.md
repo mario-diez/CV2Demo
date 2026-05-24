@@ -39,11 +39,11 @@ The Cityscapes image in the repo has two halves. To use the right half as the co
 By default, outputs are saved in `results/` using a filename that includes the image name and the model identifier.
 
 ```powershell
-python demo_inference.py cityscapes\image_001.jpg --checkpoint baseline_pix2pix_cityscapes.pt --paired-image
-python demo_inference.py cityscapes\image_001.jpg --checkpoint augmented_pix2pix_cityscapes.pt --paired-image
-python demo_inference.py cityscapes\image_001.jpg --checkpoint label_smoothing_pix2pix_cityscapes.pt --paired-image
-python demo_inference.py cityscapes\image_001.jpg --checkpoint pix2pixHD.pt --paired-image
-python demo_inference.py cityscapes\image_001.jpg --all --paired-image
+python demo_inference.py cityscapes\image_006.jpg --checkpoint baseline_pix2pix_cityscapes.pt --paired-image
+python demo_inference.py cityscapes\image_006.jpg --checkpoint augmented_pix2pix_cityscapes.pt --paired-image
+python demo_inference.py cityscapes\image_006.jpg --checkpoint label_smoothing_pix2pix_cityscapes.pt --paired-image
+python demo_inference.py cityscapes\image_006.jpg --checkpoint pix2pixHD.pt --paired-image
+python demo_inference.py cityscapes\image_006.jpg --all --paired-image
 ```
 
 By default, the script saves:
