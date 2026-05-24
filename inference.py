@@ -21,77 +21,94 @@ DEFAULT_CHECKPOINTS = (
 )
 
 
-class Block(nn.Module):
-    def __init__(self, in_channels, out_channels, down=True, act="relu", use_dropout=False):
+class DownsampleBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, normalize=True):
         super().__init__()
-        self.conv = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, 4, 2, 1, bias=False, padding_mode="reflect")
-            if down
-            else nn.ConvTranspose2d(in_channels, out_channels, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(out_channels),
-            nn.ReLU() if act == "relu" else nn.LeakyReLU(0.2),
-        )
-        self.use_dropout = use_dropout
-        self.dropout = nn.Dropout(0.5)
+        layers = [nn.Conv2d(in_channels, out_channels, 4, stride=2, padding=1, bias=False)]
+        if normalize:
+            layers.append(nn.InstanceNorm2d(out_channels, affine=True))
+        layers.append(nn.LeakyReLU(0.2, inplace=True))
+        self.model = nn.Sequential(*layers)
 
     def forward(self, x):
-        x = self.conv(x)
-        return self.dropout(x) if self.use_dropout else x
+        return self.model(x)
+
+
+class UpsampleBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, dropout=False):
+        super().__init__()
+        self.upsample = nn.Upsample(scale_factor=2, mode="nearest")
+        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=False)
+        self.norm = nn.InstanceNorm2d(out_channels, affine=True)
+        layers = [self.upsample, self.conv, self.norm]
+
+        if dropout:
+            layers.append(nn.Dropout(0.5))
+
+        layers.append(nn.ReLU(inplace=True))
+        self.model = nn.Sequential(*layers)
+
+    def forward(self, x):
+        return self.model(x)
 
 
 class Generator(nn.Module):
-    def __init__(self, in_channels=3, features=64):
+    def __init__(self, in_channels=3, out_channels=3):
         super().__init__()
-        self.initial_down = nn.Sequential(
-            nn.Conv2d(in_channels, features, 4, 2, 1, padding_mode="reflect"),
-            nn.LeakyReLU(0.2),
-        )
+        self.down1 = DownsampleBlock(in_channels, 64, normalize=False)
+        self.down2 = DownsampleBlock(64, 128)
+        self.down3 = DownsampleBlock(128, 256)
+        self.down4 = DownsampleBlock(256, 512)
+        self.down5 = DownsampleBlock(512, 512)
+        self.down6 = DownsampleBlock(512, 512)
+        self.down7 = DownsampleBlock(512, 512)
+        self.down8 = DownsampleBlock(512, 512, normalize=False)
 
-        self.down1 = Block(features, features * 2, down=True, act="leaky", use_dropout=False)
-        self.down2 = Block(features * 2, features * 4, down=True, act="leaky", use_dropout=False)
-        self.down3 = Block(features * 4, features * 8, down=True, act="leaky", use_dropout=False)
-        self.down4 = Block(features * 8, features * 8, down=True, act="leaky", use_dropout=False)
-        self.down5 = Block(features * 8, features * 8, down=True, act="leaky", use_dropout=False)
-        self.down6 = Block(features * 8, features * 8, down=True, act="leaky", use_dropout=False)
+        self.up1 = UpsampleBlock(512, 512, dropout=True)
+        self.up2 = UpsampleBlock(1024, 512, dropout=True)
+        self.up3 = UpsampleBlock(1024, 512, dropout=True)
+        self.up4 = UpsampleBlock(1024, 512)
+        self.up5 = UpsampleBlock(1024, 256)
+        self.up6 = UpsampleBlock(512, 128)
+        self.up7 = UpsampleBlock(256, 64)
 
-        self.bottleneck = nn.Sequential(
-            nn.Conv2d(features * 8, features * 8, 4, 2, 1),
-            nn.ReLU(),
-        )
-
-        self.up1 = Block(features * 8, features * 8, down=False, act="relu", use_dropout=True)
-        self.up2 = Block(features * 8 * 2, features * 8, down=False, act="relu", use_dropout=True)
-        self.up3 = Block(features * 8 * 2, features * 8, down=False, act="relu", use_dropout=True)
-        self.up4 = Block(features * 8 * 2, features * 8, down=False, act="relu", use_dropout=False)
-        self.up5 = Block(features * 8 * 2, features * 4, down=False, act="relu", use_dropout=False)
-        self.up6 = Block(features * 4 * 2, features * 2, down=False, act="relu", use_dropout=False)
-        self.up7 = Block(features * 2 * 2, features, down=False, act="relu", use_dropout=False)
-
-        self.final_up = nn.Sequential(
-            nn.ConvTranspose2d(features * 2, in_channels, kernel_size=4, stride=2, padding=1),
+        self.final = nn.Sequential(
+            nn.ConvTranspose2d(128, out_channels, kernel_size=4, stride=2, padding=1),
             nn.Tanh(),
         )
 
     def forward(self, x):
-        d1 = self.initial_down(x)
-        d2 = self.down1(d1)
-        d3 = self.down2(d2)
-        d4 = self.down3(d3)
-        d5 = self.down4(d4)
-        d6 = self.down5(d5)
-        d7 = self.down6(d6)
+        d1 = self.down1(x)
+        d2 = self.down2(d1)
+        d3 = self.down3(d2)
+        d4 = self.down4(d3)
+        d5 = self.down5(d4)
+        d6 = self.down6(d5)
+        d7 = self.down7(d6)
+        d8 = self.down8(d7)
 
-        bn = self.bottleneck(d7)
+        u1 = self.up1(d8)
+        u1 = torch.cat([u1, d7], dim=1)
 
-        u1 = self.up1(bn)
-        u2 = self.up2(torch.cat([u1, d7], dim=1))
-        u3 = self.up3(torch.cat([u2, d6], dim=1))
-        u4 = self.up4(torch.cat([u3, d5], dim=1))
-        u5 = self.up5(torch.cat([u4, d4], dim=1))
-        u6 = self.up6(torch.cat([u5, d3], dim=1))
-        u7 = self.up7(torch.cat([u6, d2], dim=1))
+        u2 = self.up2(u1)
+        u2 = torch.cat([u2, d6], dim=1)
 
-        return self.final_up(torch.cat([u7, d1], dim=1))
+        u3 = self.up3(u2)
+        u3 = torch.cat([u3, d5], dim=1)
+
+        u4 = self.up4(u3)
+        u4 = torch.cat([u4, d4], dim=1)
+
+        u5 = self.up5(u4)
+        u5 = torch.cat([u5, d3], dim=1)
+
+        u6 = self.up6(u5)
+        u6 = torch.cat([u6, d2], dim=1)
+
+        u7 = self.up7(u6)
+        u7 = torch.cat([u7, d1], dim=1)
+
+        return self.final(u7)
 
 
 class MergeDownsampleBlock(nn.Module):
@@ -110,8 +127,11 @@ class MergeDownsampleBlock(nn.Module):
 class MergeUpsampleBlock(nn.Module):
     def __init__(self, in_channels, out_channels, dropout=False):
         super().__init__()
+        self.conv = nn.ConvTranspose2d(in_channels, out_channels, 3, stride=2, padding=1, bias=False)
+        self.norm = nn.BatchNorm2d(out_channels)
         layers = [
-            nn.ConvTranspose2d(in_channels, out_channels, 4, stride=2, padding=1, bias=False),
+            nn.ReLU(inplace=True),
+            nn.ConvTranspose2d(in_channels, out_channels, 3, stride=2, padding=1, bias=False),
             nn.BatchNorm2d(out_channels),
         ]
         if dropout:
@@ -278,9 +298,9 @@ def detect_generator_architecture(state_dict) -> str:
     keys = list(state_dict.keys())
     if any(key.startswith(("global_gen.", "local_down.", "local_blocks.", "local_up.")) for key in keys):
         return "pix2pixhd"
-    if any(key.startswith(("down1.model.", "down8.model.", "final.0.")) for key in keys):
-        return "merge_pix2pix"
-    if any(key.startswith(("initial_down.", "down1.conv.", "up1.conv.", "final_up.0.")) for key in keys):
+    if any(key.startswith(("down1.model.", "down8.model.", "up1.conv.", "up1.norm.", "up1.model.1", "final.0.")) for key in keys):
+        return "pix2pix"
+    if any(key.startswith(("initial_down.", "down1.conv.", "final_up.0.")) for key in keys):
         return "pix2pix"
     return "pix2pix"
 
@@ -308,13 +328,11 @@ def build_output_path(image_path: str | Path, suffix: str, output_path: str | Pa
 
 
 def load_generator(checkpoint_path: str | Path, device: torch.device) -> tuple[nn.Module, str]:
-    checkpoint = torch.load(Path(checkpoint_path), map_location=device)
+    checkpoint = torch.load(Path(checkpoint_path), map_location=device, weights_only=True)
     state_dict = unwrap_state_dict(checkpoint)
     architecture = detect_generator_architecture(state_dict)
     if architecture == "pix2pixhd":
         model = Pix2PixHDGenerator().to(device)
-    elif architecture == "merge_pix2pix":
-        model = MergeGenerator().to(device)
     else:
         model = Generator().to(device)
     model.load_state_dict(state_dict)

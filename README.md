@@ -12,6 +12,46 @@ This repository contains a standalone demo separated from training and focused o
 
 #### Requirements
 
+#### Model Files (Git LFS Required)
+
+This repository stores all trained model weights and checkpoints.  
+Since these files are very large, they are managed using Git LFS (Large File Storage) instead of regular Git storage.
+
+#### Install Git LFS
+
+#### Linux (Ubuntu/Debian)
+```bash
+sudo apt install git-lfs
+````
+
+#### macOS
+
+```bash
+brew install git-lfs
+```
+
+#### Windows
+
+Download and install Git LFS from the official website:
+
+[https://git-lfs.com](https://git-lfs.com)
+
+---
+
+After installation, run:
+
+```bash
+git lfs install
+git lfs pull
+```
+
+If you do not use Git LFS, the downloaded files will only contain lightweight pointer references instead of the actual model weights.
+
+```
+```
+
+In case that you don`t want to install Git LFS here is a link to a google drive with the files of the models: [https://drive.google.com/drive/folders/1DRx6TKEOngPVdbKCjHWWRkJPU2f4YDxK?usp=sharing](https://drive.google.com/drive/folders/1DRx6TKEOngPVdbKCjHWWRkJPU2f4YDxK?usp=sharing)
+
 For this workspace it is recommended the creation of a virtual environment.
 
 ```powershell
