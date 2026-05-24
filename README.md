@@ -22,7 +22,7 @@ Activation:
 
 ```powershell
 venv\Scripts\Activate.ps1  ## Activation in Powershell Windows
-source venv/Scripts/activate  ## Activation in linux
+source venv/bin/activate  ## Activation in linux
 ```
 
 If you need to install dependencies for the demo:
